@@ -32,6 +32,26 @@ async function run() {
 
     // ==================== PARCEL APIs ====================
 
+    // Get all parcels (for admin)
+    app.get("/parcels", async (req, res) => {
+      try {
+        const parcels = await parcelsCollection.find({}).sort({ createdAt: -1 }).toArray();
+
+        res.status(200).json({
+          success: true,
+          count: parcels.length,
+          parcels: parcels,
+        });
+      } catch (error) {
+        console.error("Error fetching parcels:", error);
+        res.status(500).json({
+          success: false,
+          message: "Failed to fetch parcels",
+          error: error.message,
+        });
+      }
+    });
+
     // Create a new parcel
     app.post("/parcels", async (req, res) => {
       try {
@@ -231,6 +251,90 @@ async function run() {
         res.status(500).json({
           success: false,
           message: "Failed to search parcels",
+          error: error.message,
+        });
+      }
+    });
+
+    // ==================== PAYMENT API ====================
+
+    // Process payment for a parcel
+    app.post("/parcels/:id/pay", async (req, res) => {
+      try {
+        const id = req.params.id;
+        const { paymentMethod, amount } = req.body;
+
+        if (!ObjectId.isValid(id)) {
+          return res.status(400).json({
+            success: false,
+            message: "Invalid parcel ID",
+          });
+        }
+
+        // Check if parcel exists
+        const parcel = await parcelsCollection.findOne({
+          _id: new ObjectId(id),
+        });
+
+        if (!parcel) {
+          return res.status(404).json({
+            success: false,
+            message: "Parcel not found",
+          });
+        }
+
+        // Check if already paid
+        if (parcel.status !== "unpaid") {
+          return res.status(400).json({
+            success: false,
+            message: "Parcel is already paid",
+          });
+        }
+
+        // Generate tracking number
+        const timestamp = Date.now().toString().slice(-8);
+        const random = Math.floor(Math.random() * 100)
+          .toString()
+          .padStart(2, "0");
+        const tracking_no = `ZS${timestamp}${random}`;
+
+        // Update parcel with payment info
+        const result = await parcelsCollection.updateOne(
+          { _id: new ObjectId(id) },
+          {
+            $set: {
+              status: "paid",
+              tracking_no: tracking_no,
+              paymentMethod: paymentMethod,
+              paidAmount: amount,
+              paidAt: new Date().toISOString(),
+              updatedAt: new Date().toISOString(),
+            },
+          }
+        );
+
+        if (result.modifiedCount === 0) {
+          return res.status(500).json({
+            success: false,
+            message: "Failed to process payment",
+          });
+        }
+
+        res.status(200).json({
+          success: true,
+          message: "Payment processed successfully",
+          tracking_no: tracking_no,
+          parcel: {
+            _id: id,
+            tracking_no: tracking_no,
+            status: "paid",
+          },
+        });
+      } catch (error) {
+        console.error("Error processing payment:", error);
+        res.status(500).json({
+          success: false,
+          message: "Failed to process payment",
           error: error.message,
         });
       }
