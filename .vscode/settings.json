@@ -52,9 +52,6 @@
             "tab.activeModifiedBorder": "#80CBC400",
             "statusBar.debuggingBackground": "#80CBC433",
             "statusBar.debuggingForeground": "#80CBC4"
-        },
-        "activityBar.background": "#462501",
-        "titleBar.activeBackground": "#633402",
-        "titleBar.activeForeground": "#FFFAF4"
+        }
     }
 }
